@@ -1,0 +1,171 @@
+# =============================================================================
+# CONTACT DIRECTORY - Docker Compose (Desarrollo)
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Base de datos PostgreSQL 15
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: contact_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - contact_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # ---------------------------------------------------------------------------
+  # Backend FastAPI
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: contact_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT:             ${ENVIRONMENT:-development}
+      SECRET_KEY:              ${SECRET_KEY}
+      POSTGRES_USER:           ${POSTGRES_USER}
+      POSTGRES_PASSWORD:       ${POSTGRES_PASSWORD}
+      POSTGRES_DB:             ${POSTGRES_DB}
+      POSTGRES_HOST:           db
+      POSTGRES_PORT:           ${POSTGRES_PORT:-5432}
+      AZURE_CLIENT_ID:         ${AZURE_CLIENT_ID}
+      AZURE_TENANT_ID:         ${AZURE_TENANT_ID}
+      AZURE_CLIENT_SECRET:     ${AZURE_CLIENT_SECRET}
+      AZURE_REDIRECT_URI:      ${AZURE_REDIRECT_URI}
+      AZURE_SCOPES:            ${AZURE_SCOPES:-User.Read}
+      JWT_ALGORITHM:           ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES:      ${JWT_EXPIRE_MINUTES:-60}
+      JWT_REFRESH_EXPIRE_DAYS: ${JWT_REFRESH_EXPIRE_DAYS:-7}
+      ALLOWED_ORIGINS:         ${ALLOWED_ORIGINS:-http://localhost}
+      UPLOAD_MAX_SIZE_MB:      ${UPLOAD_MAX_SIZE_MB:-10}
+      UPLOAD_DIR:              /app/uploads
+      LOG_LEVEL:               ${LOG_LEVEL:-INFO}
+    volumes:
+      - uploads_data:/app/uploads
+      # Hot-reload en desarrollo (comentar en prod)
+      - ./backend/app:/app/app
+    networks:
+      - contact_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    # Hot-reload en desarrollo
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ---------------------------------------------------------------------------
+  # Frontend React (modo desarrollo con CRA dev server)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: contact_frontend
+    restart: unless-stopped
+    environment:
+      REACT_APP_API_URL:           ${REACT_APP_API_URL:-http://localhost/api}
+      REACT_APP_AZURE_CLIENT_ID:   ${AZURE_CLIENT_ID}
+      REACT_APP_AZURE_TENANT_ID:   ${AZURE_TENANT_ID}
+      REACT_APP_AZURE_REDIRECT_URI: ${AZURE_REDIRECT_URI}
+    networks:
+      - contact_net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+
+  # ---------------------------------------------------------------------------
+  # Nginx reverse proxy
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: contact_nginx
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - contact_net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          cpus: "0.10"
+          memory: 64M
+
+# =============================================================================
+# Volúmenes persistentes
+# =============================================================================
+volumes:
+  postgres_data:
+    name: contact_postgres_data
+  uploads_data:
+    name: contact_uploads_data
+
+# =============================================================================
+# Red interna nombrada
+# =============================================================================
+networks:
+  contact_net:
+    name: contact_network
+    driver: bridge

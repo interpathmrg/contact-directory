@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# MyPy
+.mypy_cache/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node / React
+node_modules/
+frontend/build/
+frontend/dist/
+*.log
+npm-debug.log*
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads temporales
+backend/uploads/
+*.xlsx
+*.csv
+
+# Kubernetes secrets reales
+k8s/secret.yaml
+
+# Alembic
+backend/alembic/versions/*.pyc

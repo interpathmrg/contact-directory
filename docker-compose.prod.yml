@@ -1,0 +1,53 @@
+# =============================================================================
+# CONTACT DIRECTORY - Docker Compose (Producción / Pre-K8s)
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# =============================================================================
+# Diferencias con dev:
+#   - Sin hot-reload (no bind mount de código)
+#   - Imágenes pre-built con tags explícitos
+#   - restart: always
+#   - Frontend sirve build estático (no dev server)
+#   - Logs estructurados JSON
+# =============================================================================
+
+services:
+
+  db:
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    restart: always
+    # Sobrescribe el comando de dev (sin --reload)
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+    # Elimina el bind mount de código fuente
+    volumes:
+      - uploads_data:/app/uploads
+    environment:
+      ENVIRONMENT: production
+      LOG_LEVEL:   ${LOG_LEVEL:-WARNING}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  frontend:
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  nginx:
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
