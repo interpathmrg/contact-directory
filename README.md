@@ -559,11 +559,15 @@ contact-directory/
 ├── nginx/
 │   └── nginx.conf              # Reverse proxy principal
 │
-└── k8s/                        # Manifests de referencia
-    ├── deployment.yaml
-    ├── service.yaml
-    ├── configmap.yaml
-    └── secret.yaml.example
+└── k8s/                        # Manifests de Kubernetes
+    ├── namespace.yaml          # Namespace contact-directory
+    ├── configmap.yaml          # Variables no sensibles
+    ├── secret.yaml.example     # Plantilla de secrets (base64)
+    ├── postgres.yaml           # StatefulSet + PVC + Service
+    ├── deployment.yaml         # Backend y Frontend
+    ├── service.yaml            # ClusterIP services
+    ├── ingress.yaml            # Traefik IngressRoute + Middleware
+    └── migration-job.yaml      # Job de Alembic
 ```
 
 ---
